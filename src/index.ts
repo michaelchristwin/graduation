@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { serveStatic } from "hono/bun";
 import { zValidator } from "@hono/zod-validator";
 import { env } from "./env";
 import { createApp } from "@/lib/create-app";
@@ -22,6 +23,7 @@ app.get("/echo", zValidator("query", querySchema), (c) => {
 
 configureOpenAPI(app);
 app.route("/users", usersRouter);
+app.use("/favicon.ico", serveStatic({ path: "./src/assets/favicon.ico" }));
 export default {
   fetch: app.fetch,
   port: env.PORT,

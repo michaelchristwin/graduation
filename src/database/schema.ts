@@ -13,7 +13,11 @@ import {
   point,
   date,
 } from "drizzle-orm/pg-core";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
+const now = timestamp({ withTimezone: true }).notNull().defaultNow();
+
+// Enums Definitions
 const accountStatus = pgEnum("account_status", [
   "active",
   "suspended",
@@ -28,7 +32,7 @@ const connectionType = pgEnum("connection_type", [
   "industrial",
 ]);
 
-const metersStatus = pgEnum("status", [
+const meterStatus = pgEnum("meter_status", [
   "active",
   "inactive",
   "faulty",
@@ -66,16 +70,15 @@ const paymentMethod = pgEnum("method", [
   "wallet",
 ]);
 
-const paymentStatus = pgEnum("status", [
+const paymentStatus = pgEnum("payment_status", [
   "pending",
   "successful",
   "failed",
   "reversed",
 ]);
 
-const now = timestamp({ withTimezone: true }).notNull().defaultNow();
-
-const usersTable = pgTable("users", {
+// Tables Definitions
+const users = pgTable("users", {
   id: uuid().defaultRandom().primaryKey(),
   full_name: varchar({ length: 150 }).notNull(),
   email: varchar({ length: 255 }).notNull().unique(),
@@ -85,7 +88,7 @@ const usersTable = pgTable("users", {
   created_at: now,
 });
 
-const tariffsTable = pgTable("tariffs", {
+const tariffs = pgTable("tariffs", {
   id: uuid().primaryKey().defaultRandom(),
   name: varchar({ length: 100 }).notNull(),
   type: tariffType().notNull(),
@@ -96,39 +99,39 @@ const tariffsTable = pgTable("tariffs", {
   effective_to: timestamp({ withTimezone: true }),
 });
 
-const servicePointsTable = pgTable("service_points", {
+const servicePoints = pgTable("service_points", {
   id: uuid().primaryKey().defaultRandom(),
   user_id: uuid()
     .notNull()
-    .references(() => usersTable.id, { onDelete: "restrict" }),
-  tarrif_id: uuid().references(() => tariffsTable.id),
+    .references(() => users.id, { onDelete: "restrict" }),
+  tarrif_id: uuid().references(() => tariffs.id),
   address: text().notNull(),
   coordinates: point(),
   connection_type: connectionType().notNull().default("residential"),
   activated_at: timestamp({ withTimezone: true }),
 });
 
-const metersTable = pgTable("meters", {
+const meters = pgTable("meters", {
   id: uuid().primaryKey().defaultRandom(),
   service_point_id: uuid()
     .notNull()
-    .references(() => servicePointsTable.user_id, { onDelete: "restrict" }),
+    .references(() => servicePoints.id, { onDelete: "restrict" }),
   serial_number: varchar({ length: 100 }).notNull().unique(),
   manufacturer: varchar({ length: 100 }),
   model: varchar({ length: 100 }),
   firmware_version: varchar({ length: 50 }),
-  status: metersStatus().notNull().default("active"),
+  meter_status: meterStatus().notNull().default("active"),
   installed_at: now,
   last_seen_at: timestamp({ withTimezone: true }),
 });
 
-const readingsTable = pgTable(
+const readings = pgTable(
   "readings",
   {
     id: uuid().primaryKey().defaultRandom(),
     meter_id: uuid()
       .notNull()
-      .references(() => metersTable.id, { onDelete: "cascade" }),
+      .references(() => meters.id, { onDelete: "cascade" }),
     value_kwh: numeric({ precision: 12, scale: 4 }).notNull(),
     reading_type: readingType().notNull().default("automatic"),
     source: varchar({ length: 50 }),
@@ -142,13 +145,13 @@ const readingsTable = pgTable(
   ],
 );
 
-const alertTable = pgTable(
+const alerts = pgTable(
   "alerts",
   {
     id: uuid().primaryKey().defaultRandom(),
     meter_id: uuid()
       .notNull()
-      .references(() => metersTable.id, { onDelete: "cascade" }),
+      .references(() => meters.id, { onDelete: "cascade" }),
     alert_type: alertType().notNull(),
     severity: severity().notNull().default("info"),
     message: text(),
@@ -160,19 +163,19 @@ const alertTable = pgTable(
   ],
 );
 
-const invoicesTable = pgTable(
+const invoices = pgTable(
   "invoices",
   {
     id: uuid().primaryKey().defaultRandom(),
     user_id: uuid()
       .notNull()
-      .references(() => usersTable.id, { onDelete: "restrict" }),
+      .references(() => users.id, { onDelete: "restrict" }),
     service_point_id: uuid()
       .notNull()
-      .references(() => servicePointsTable.id, { onDelete: "restrict" }),
+      .references(() => servicePoints.id, { onDelete: "restrict" }),
     total_kwh: numeric({ precision: 12, scale: 4 }).notNull(),
     amount_due: numeric({ precision: 12, scale: 2 }).notNull(),
-    status: invoiceStatus().notNull().default("unpaid"),
+    invoice_status: invoiceStatus().notNull().default("unpaid"),
     period_start: date().notNull(),
     period_end: date().notNull(),
     issued_at: now,
@@ -181,38 +184,55 @@ const invoicesTable = pgTable(
   (table) => [check("is_due", gt(table.period_end, table.period_start))],
 );
 
-const paymentsTable = pgTable("payments", {
+const payments = pgTable("payments", {
   id: uuid().primaryKey().defaultRandom(),
   invoice_id: uuid()
     .notNull()
-    .references(() => invoicesTable.id, { onDelete: "restrict" }),
+    .references(() => invoices.id, { onDelete: "restrict" }),
   amount: numeric({ precision: 12, scale: 2 }).notNull(),
   method: paymentMethod().notNull(),
   transaction_ref: varchar({ length: 200 }),
-  status: paymentStatus().notNull().default("pending"),
+  payment_status: paymentStatus().notNull().default("pending"),
   paid_at: now,
+});
+
+// const selectServicePointsSchema = createSelectSchema(servicePoints);
+// const selectTariffsSchema = createSelectSchema(tariffs);
+// const selectMetersSchema = createSelectSchema(meters);
+// const selectReadingsSchema = createSelectSchema(readings);
+// const selectAlertsSchema = createSelectSchema(alerts);
+// const selectInvoicesSchema = createSelectSchema(invoices);
+// const selectPaymentsSchema = createSelectSchema(payments);
+const selectUsersSchema = createSelectSchema(users);
+const insertUsersSchema = createInsertSchema(users).omit({
+  id: true,
+  created_at: true,
 });
 
 export {
   // Tables
-  usersTable,
-  tariffsTable,
-  servicePointsTable,
-  metersTable,
-  readingsTable,
-  alertTable,
-  invoicesTable,
-  paymentsTable,
+  users,
+  tariffs,
+  servicePoints,
+  meters,
+  readings,
+  alerts,
+  invoices,
+  payments,
 
   // Enums
   accountStatus,
   tariffType,
   connectionType,
-  metersStatus,
+  meterStatus,
   readingType,
   alertType,
   severity,
   invoiceStatus,
   paymentMethod,
   paymentStatus,
+
+  // Schemas
+  selectUsersSchema,
+  insertUsersSchema,
 };

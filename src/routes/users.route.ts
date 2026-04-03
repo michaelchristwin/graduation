@@ -1,27 +1,40 @@
+import { db } from "@/database";
+import { insertUsersSchema, selectUsersSchema, users } from "@/database/schema";
 import { createRouter } from "@/lib/create-app";
-import { createRoute, z } from "@hono/zod-openapi";
+import { createRoute } from "@hono/zod-openapi";
 
 const usersRouter = createRouter();
 
 usersRouter.openapi(
   createRoute({
-    method: "get",
-    path: "/register",
-    responses: {
-      200: {
+    method: "post",
+    request: {
+      body: {
         content: {
           "application/json": {
-            schema: z.object({
-              message: z.string(),
-            }),
+            schema: insertUsersSchema,
           },
         },
-        description: "Register a new grid user",
+        required: true,
+        description: "The user to register",
+      },
+    },
+    path: "/register",
+    responses: {
+      201: {
+        content: {
+          "application/json": {
+            schema: selectUsersSchema,
+          },
+        },
+        description: "Register a new smart grid user",
       },
     },
   }),
-  (c) => {
-    return c.json({ message: "New user created" }, 200);
+  async (c) => {
+    const user = c.req.valid("json");
+    const [inserted] = await db.insert(users).values(user).returning();
+    return c.json(inserted);
   },
 );
 
