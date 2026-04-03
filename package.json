@@ -1,10 +1,12 @@
 {
   "name": "graduation",
+  "version": "0.0.1",
   "scripts": {
     "dev": "bun run --hot src/index.ts",
     "start": "bun run src/index.ts"
   },
   "dependencies": {
+    "@hono/zod-openapi": "^1.2.4",
     "@hono/zod-validator": "^0.7.6",
     "dotenv": "^17.4.0",
     "drizzle-orm": "^0.45.2",
