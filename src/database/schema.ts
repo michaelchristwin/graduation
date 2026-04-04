@@ -13,7 +13,11 @@ import {
   point,
   date,
 } from "drizzle-orm/pg-core";
-import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import {
+  createInsertSchema,
+  createSelectSchema,
+  createUpdateSchema,
+} from "drizzle-zod";
 
 const now = timestamp({ withTimezone: true }).notNull().defaultNow();
 
@@ -208,6 +212,10 @@ const insertUsersSchema = createInsertSchema(users).omit({
   id: true,
   created_at: true,
 });
+const updateUsersSchema = createUpdateSchema(users).omit({
+  id: true,
+  created_at: true,
+});
 
 export {
   // Tables
@@ -235,4 +243,5 @@ export {
   // Schemas
   selectUsersSchema,
   insertUsersSchema,
+  updateUsersSchema,
 };
