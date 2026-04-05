@@ -15,7 +15,7 @@ usersRouter.openapi(
   createRoute({
     method: "get",
     path: "/",
-    tags: ["users"],
+    tags: ["Users"],
     responses: {
       200: {
         content: {
@@ -37,7 +37,7 @@ usersRouter.openapi(
   createRoute({
     method: "post",
     path: "/register",
-    tags: ["users"],
+    tags: ["Users"],
     request: {
       body: {
         content: {
@@ -71,7 +71,7 @@ usersRouter.openapi(
   createRoute({
     method: "patch",
     path: "/update/:id",
-    tags: ["users"],
+    tags: ["Users"],
     request: {
       params: z.object({
         id: z.uuid(),
