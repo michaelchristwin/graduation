@@ -5,17 +5,25 @@ import {
   insertUsersSchema,
   selectUsersSchema,
   updateUsersSchema,
-  users,
+  users as usersTable,
 } from "@/database/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, ilike } from "drizzle-orm";
 
 const usersRouter = createRouter();
+
+const getUsersQuerySchema = z.object({
+  account_status: z.enum(["active", "suspended", "closed"]).optional(),
+  address: z.string().optional(),
+});
 
 usersRouter.openapi(
   createRoute({
     method: "get",
     path: "/",
     tags: ["Users"],
+    request: {
+      query: getUsersQuerySchema,
+    },
     responses: {
       200: {
         content: {
@@ -28,7 +36,20 @@ usersRouter.openapi(
     },
   }),
   async (c) => {
-    const users = await db.query.users.findMany();
+    const { account_status, address } = c.req.valid("query");
+
+    const filters = [];
+
+    if (account_status) {
+      filters.push(eq(usersTable.account_status, account_status));
+    }
+
+    if (address) {
+      filters.push(ilike(usersTable.address, `%${address}%`));
+    }
+    const users = await db.query.users.findMany({
+      where: filters.length ? and(...filters) : undefined,
+    });
     return c.json(users);
   },
 );
@@ -62,7 +83,7 @@ usersRouter.openapi(
   }),
   async (c) => {
     const user = c.req.valid("json");
-    const [inserted] = await db.insert(users).values(user).returning();
+    const [inserted] = await db.insert(usersTable).values(user).returning();
     return c.json(inserted);
   },
 );
@@ -101,9 +122,9 @@ usersRouter.openapi(
     const { id } = c.req.valid("param");
     const userPatch = c.req.valid("json");
     const [updatedUser] = await db
-      .update(users)
+      .update(usersTable)
       .set(userPatch)
-      .where(eq(users.id, id))
+      .where(eq(usersTable.id, id))
       .returning();
     return c.json(updatedUser);
   },
